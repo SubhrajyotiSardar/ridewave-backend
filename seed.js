@@ -23,6 +23,33 @@ async function seed() {
   await mongoose.connect(MONGO_URI);
   console.log('Connected to MongoDB');
 
+  // ── SAFETY LOCK ──────────────────────────────────────────────────────────
+  // Prevent accidentally wiping real user data. Demo accounts are recognized
+  // by their fixed seed emails — if ANY other user exists, seeding is blocked
+  // unless --force is explicitly passed.
+  const demoEmails = [
+    'admin@bikerental.com', 'rohit@renter.com', 'priya@renter.com',
+    'arjun@user.com', 'sneha@user.com'
+  ];
+  const forceFlag = process.argv.includes('--force');
+  const existingUsers = await User.find({});
+  const realUsers = existingUsers.filter(u => !demoEmails.includes(u.email));
+
+  if (realUsers.length > 0 && !forceFlag) {
+    console.log('\n🛑 SEED BLOCKED — Real user data detected!\n');
+    console.log(`Found ${realUsers.length} non-demo account(s) in the database:`);
+    realUsers.forEach(u => console.log(`   - ${u.name} (${u.email}) [${u.role}]`));
+    console.log('\nRunning seed now would PERMANENTLY DELETE this data.');
+    console.log('If you are absolutely sure you want to wipe everything and reset to demo data, run:');
+    console.log('\n   npm run seed -- --force\n');
+    await mongoose.disconnect();
+    process.exit(1);
+  }
+
+  if (forceFlag && realUsers.length > 0) {
+    console.log(`⚠️  --force flag detected. Wiping ${realUsers.length} real account(s) as requested...\n`);
+  }
+
   // Clear existing data
   await User.deleteMany({});
   await Vehicle.deleteMany({});

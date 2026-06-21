@@ -13,7 +13,7 @@ const io = new Server(server, {
 });
 
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -23,6 +23,28 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Quick DB verification endpoint — shows real counts, useful for confirming data is actually saved
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Vehicle = require('./models/Vehicle');
+    const Booking = require('./models/Booking');
+    const userCount = await User.countDocuments();
+    const vehicleCount = await Vehicle.countDocuments();
+    const bookingCount = await Booking.countDocuments();
+    const dbName = mongoose.connection.db.databaseName;
+    const host = mongoose.connection.host;
+    res.json({
+      connectedTo: { database: dbName, host },
+      counts: { users: userCount, vehicles: vehicleCount, bookings: bookingCount },
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 // Socket.IO — real-time vehicle location updates
 io.on('connection', (socket) => {

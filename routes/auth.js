@@ -24,6 +24,7 @@ router.post('/register', async (req, res) => {
       licenseNumber: licenseNumber || '',
       renterApproved: false
     });
+    console.log(`✅ New ${userRole} registered & saved to DB: ${email} (id: ${user._id})`);
 
     const token = signToken(user._id);
     res.status(201).json({

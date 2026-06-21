@@ -57,6 +57,7 @@ router.post('/', protect, restrictTo('renter', 'admin'), async (req, res) => {
       images: images || [],
       isApproved: req.user.role === 'admin'
     });
+    console.log(`✅ New vehicle saved to DB: ${name} (id: ${vehicle._id}) by renter ${req.user.email}`);
     res.status(201).json({ vehicle });
   } catch (err) {
     res.status(500).json({ message: err.message });
