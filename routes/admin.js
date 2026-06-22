@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
 const Booking = require('../models/Booking');
 const { protect, restrictTo } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 
 const guard = [protect, restrictTo('admin')];
 
@@ -63,6 +64,15 @@ router.patch('/renters/:id/approve', guard, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.params.id, { renterApproved: true }, { new: true }
     ).select('-password');
+
+    await notify(req.app, {
+      userId: user._id,
+      type: 'renter_approved',
+      title: '🎉 You\'re approved!',
+      message: 'Your renter account has been approved. You can now add vehicles to your fleet.',
+      link: '/renter/fleet'
+    });
+
     res.json({ user });
   } catch (err) {
     res.status(500).json({ message: err.message });

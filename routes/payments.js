@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Booking = require('../models/Booking');
 const Transaction = require('../models/Transaction');
 const { protect, restrictTo } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 
 // Helper: generate fake gateway ref
 const gatewayRef = () => 'RW' + Date.now() + Math.random().toString(36).slice(2,7).toUpperCase();
@@ -144,6 +145,26 @@ router.post('/pay-booking/:bookingId', protect, async (req, res) => {
 
     // Update user total spent
     await User.findByIdAndUpdate(req.user._id, { $inc: { totalSpent: amount } });
+
+    // ── Notify the renter: a booking just came in and is paid ──────────────
+    await notify(req.app, {
+      userId: booking.renter,
+      type: 'new_booking',
+      title: '🛵 New booking received!',
+      message: `${req.user.name} booked your ${booking.vehicle?.name} for ₹${amount}. Payment confirmed.`,
+      link: '/renter/bookings',
+      bookingId: booking._id
+    });
+
+    // ── Notify the rider too: payment confirmation ──────────────────────────
+    await notify(req.app, {
+      userId: req.user._id,
+      type: 'payment_received',
+      title: '✅ Booking confirmed',
+      message: `Your booking for ${booking.vehicle?.name} is confirmed. Enjoy your ride!`,
+      link: '/dashboard/bookings',
+      bookingId: booking._id
+    });
 
     res.json({
       message: 'Payment successful!',

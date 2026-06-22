@@ -4,6 +4,7 @@ const Booking = require('../models/Booking');
 const Vehicle = require('../models/Vehicle');
 const User = require('../models/User');
 const { protect, restrictTo } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 
 // Create booking
 router.post('/', protect, restrictTo('user'), async (req, res) => {
@@ -81,12 +82,25 @@ router.patch('/:id/complete', protect, async (req, res) => {
 // Cancel booking
 router.patch('/:id/cancel', protect, async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id).populate('vehicle', 'name');
     if (!booking) return res.status(404).json({ message: 'Not found' });
     await Booking.findByIdAndUpdate(booking._id, {
       status: 'cancelled', cancellationReason: req.body.reason || ''
     });
-    await Vehicle.findByIdAndUpdate(booking.vehicle, { status: 'available' });
+    await Vehicle.findByIdAndUpdate(booking.vehicle._id || booking.vehicle, { status: 'available' });
+
+    // Notify the renter their booking was cancelled
+    if (booking.paymentStatus === 'paid') {
+      await notify(req.app, {
+        userId: booking.renter,
+        type: 'booking_cancelled',
+        title: '⚠️ Booking cancelled',
+        message: `A booking for ${booking.vehicle?.name || 'your vehicle'} was cancelled by the rider.`,
+        link: '/renter/bookings',
+        bookingId: booking._id
+      });
+    }
+
     res.json({ message: 'Booking cancelled' });
   } catch (err) {
     res.status(500).json({ message: err.message });

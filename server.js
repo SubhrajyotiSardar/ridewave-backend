@@ -15,12 +15,16 @@ const io = new Server(server, {
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000' }));
 app.use(express.json({ limit: '8mb' }));
 
+// Expose io to route handlers via req.app.get('io')
+app.set('io', io);
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/vehicles', require('./routes/vehicles'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -46,9 +50,18 @@ app.get('/api/db-check', async (req, res) => {
 });
 
 
-// Socket.IO — real-time vehicle location updates
+// Socket.IO — real-time vehicle location updates + targeted notifications
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
+
+  // Each logged-in client joins a private room keyed by their user ID,
+  // so the server can push notifications to a SPECIFIC user (e.g. a renter)
+  // instead of broadcasting to everyone.
+  socket.on('join_user_room', (userId) => {
+    if (!userId) return;
+    socket.join(`user:${userId}`);
+    console.log(`Socket ${socket.id} joined room user:${userId}`);
+  });
 
   // Renter updates vehicle location
   socket.on('update_vehicle_location', async ({ vehicleId, lat, lng, status }) => {

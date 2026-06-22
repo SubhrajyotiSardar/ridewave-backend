@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Vehicle = require('../models/Vehicle');
 const { protect, restrictTo } = require('../middleware/auth');
+const { notify } = require('../utils/notify');
 
 // Get all approved vehicles (with optional geo filter)
 router.get('/', async (req, res) => {
@@ -98,6 +99,15 @@ router.patch('/:id/approve', protect, restrictTo('admin'), async (req, res) => {
     const vehicle = await Vehicle.findByIdAndUpdate(
       req.params.id, { isApproved: true }, { new: true }
     );
+
+    await notify(req.app, {
+      userId: vehicle.renter,
+      type: 'vehicle_approved',
+      title: '✅ Vehicle approved!',
+      message: `Your vehicle "${vehicle.name}" is now live and visible to riders.`,
+      link: '/renter/fleet'
+    });
+
     res.json({ vehicle });
   } catch (err) {
     res.status(500).json({ message: err.message });
