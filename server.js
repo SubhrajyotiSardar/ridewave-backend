@@ -98,10 +98,17 @@ io.on('connection', (socket) => {
 });
 
 // MongoDB connection
+const { expireStaleBookings } = require('./utils/bookingCleanup');
+
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/bike_rental')
   .then(() => {
     console.log('MongoDB connected');
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+    // Sweep for abandoned unpaid bookings every 60s, freeing up their
+    // date range so other riders can book that slot again.
+    setInterval(expireStaleBookings, 60 * 1000);
+    expireStaleBookings(); // run once immediately on boot too
   })
   .catch(err => console.error('DB connection error:', err));

@@ -9,9 +9,12 @@ const bookingSchema = new mongoose.Schema({
   plannedEndTime: { type: Date },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'expired'],
     default: 'pending'
   },
+  // Unpaid bookings auto-expire after a grace period so an abandoned
+  // checkout doesn't permanently block a vehicle's date range.
+  expiresAt: { type: Date, default: null },
   rentalType: { type: String, enum: ['hourly', 'daily'], default: 'hourly' },
   totalAmount: { type: Number, default: 0 },
   paidAmount: { type: Number, default: 0 },
